@@ -1,0 +1,3 @@
+select email from (
+SELECT COUNT(email) as emailCount, * FROM [Employee]
+) where email >=2
