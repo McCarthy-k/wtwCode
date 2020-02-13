@@ -1,0 +1,6 @@
+select d.name as Department, ee.name as Employee, x.Salary from (
+    select departmentId, max(salary) as Salary from Employee e
+    group by departmentId
+    ) x
+left join Department d on d.departmentId = x.departmentId
+left join Employee ee on ee.departmentId = x.departmentId and ee.salary = x.salary
