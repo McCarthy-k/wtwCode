@@ -1,0 +1,25 @@
+using System;
+using System.Collections.Generic; 
+					
+public class Program
+{
+	public static void Main()
+	{
+		
+	}
+	
+	public int NumberOfUniqueEmailAddresses(string[] emails) {
+
+		HashSet<string> emailAddresses = new HashSet<string>();
+
+		foreach(var e in emails){
+			string[] locAndDom = e.Split('@');
+			locAndDom[0] = locAndDom[0].Split('+')[0];
+			locAndDom[0] = locAndDom[0].Replace(".", "");
+			var concatAddress = String.Concat(String.Concat(locAndDom[0],'@'), locAndDom[1]);
+			emailAddresses.Add(concatAddress);
+		}
+
+		return emailAddresses.Count;
+	}
+}
