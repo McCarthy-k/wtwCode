@@ -1,0 +1,151 @@
+--create relational tables
+CREATE TABLE [Campsites](
+	[CampsiteId] [int] IDENTITY(1,1) NOT NULL,
+	[CampsiteName] [nvarchar](100) NOT NULL
+)
+;
+
+CREATE TABLE [Reservations](
+	[ReservationId] [int] IDENTITY(1,1) NOT NULL,
+	[CampsiteId] [int] NOT NULL,
+	[ReservationStart] [datetime] NOT NULL,
+	[ReservationEnd] [datetime] NULL,
+	[ReservationGuestCount] [int] NULL
+)
+;
+
+
+--populate tables with dummy data
+INSERT INTO Campsites 
+	([CampsiteName]) 
+VALUES
+  ('SiteOne'),
+  ('SiteTwo'),
+  ('SiteThree')
+;
+  
+INSERT INTO Reservations
+    ([CampsiteId], [ReservationStart], [ReservationEnd], [ReservationGuestCount])
+VALUES
+  ('1', '02/01/2020', '02/20/2020', 8),
+  ('1', '03/01/2020', null, null),
+  ('2', '02/01/2020', '02/20/2020', 8),
+  ('2', '03/01/2020', null, null),
+  ('2', '04/01/2020', null, 4),
+  ('2', '05/01/2020', null, 4),
+  ('2', '06/01/2020', null, 4),
+  ('3', '02/01/2020', '02/20/2020', 8),
+  ('3', '03/01/2020', null, null),
+  ('3', '04/01/2020', null, null)
+;
+  
+
+  --stored procedure to add/cancel reservation
+USE CampsiteReservations;  
+GO  
+CREATE PROCEDURE dbo.addOrCancelReservation   
+	@addOrCancel varchar(10),
+	@CampsiteId int,
+	@ReservationStart date,
+	@ReservationEnd date = null,
+	@ReservationGuestCount int
+AS   
+SET NOCOUNT ON; 
+
+--1 = available, 0 is not available
+	declare @reservationAvailable int,
+			@reservationExists int,
+			@confirmReservation varchar(500)
+	
+	if @addOrCancel = 'add'
+	begin
+		set @reservationAvailable = 
+			SELECT 
+				count(*)
+			FROM 
+			(select ReservationId from Reservations
+				WHERE  
+				CampsiteId = @CampsiteId and 
+				ReservationStart = @ReservationStart and
+				ReservationEnd = null and
+				ReservationGuestCount = null
+			) x
+		;
+		
+		if @reservationAvailable = 0
+			set @confirmReservation = 'Error: The campsite you selected is not available for that date.';
+		else
+			insert into Reservations ([CampsiteId], [ReservationStart], [ReservationEnd], [ReservationGuestCount])
+			values (
+			@CampsiteId, @ReservationStart, @ReservationEnd, @ReservationGuestCount
+			);
+		
+			set @confirmReservation = 'Reservation confirmed!';
+		
+	end
+	
+	else
+	if @addOrCancel = 'cancel'
+	begin
+	--1 exists, 0 does not exist
+		set @reservationExists = 
+			SELECT 
+				count(*)
+			FROM 
+			(select ReservationId from Reservations
+				WHERE  
+				CampsiteId = @CampsiteId and 
+				ReservationStart = @ReservationStart and
+				ReservationEnd = @ReservationEnd and
+				ReservationGuestCount = @ReservationGuestCount
+			) x
+		;
+		
+		if @reservationExists = 0
+			set @confirmReservation = 'Error: The reservation you are trying to cancel does not exist.';
+		else
+			update Reservations 
+			set  
+				@ReservationEnd = null, 
+				@ReservationGuestCount = null
+			where 
+				CampsiteId = @CampsiteId and 
+				ReservationStart = @ReservationStart and
+				ReservationEnd = @ReservationEnd and
+				ReservationGuestCount = @ReservationGuestCount
+			;
+		
+			set @confirmReservation = 'Reservation cancelled.';
+		
+	end
+	
+	return @confirmReservation;
+GO  
+
+  
+  --view to show available dates
+CREATE VIEW campsiteAvailability AS
+SELECT ReservationId, CampsiteId, ReservationStart
+FROM Reservations
+WHERE ReservationEnd is null and ReservationGuestCount is null;
+  
+  
+  --function to show most popular day to visit
+CREATE FUNCTION dbo.GetPopularDate ()
+RETURNS datetime
+AS BEGIN
+    DECLARE @popularDate datetime
+
+	set @popularDate = 
+		select ReservationStart from (
+			select top 1 ReservationStart, count(ReservationStart) AS countReservationStart
+			  from Reservations
+			  where ReservationGuestCount is not null
+			  group by ReservationStart
+			  order by countReservationStart desc
+			)x
+	
+    RETURN @popularDate
+END
+  
+  
